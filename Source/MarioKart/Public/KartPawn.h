@@ -6,8 +6,11 @@
 #include "Components/SphereComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Item.h"
 #include "KartPawn.generated.h"
 
+
+class UKartHUD;
 
 UCLASS()
 class MARIOKART_API AKartPawn : public APawn
@@ -49,11 +52,50 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Kart")
 	FVector GetMoveDirection() const;
 	
+	UFUNCTION(BlueprintCallable, Category = "Kart")
+	void SetSpeedBoost(float Boost, float BoostTime);
+	
+	UFUNCTION(BlueprintCallable, Category = "Kart|Action")
+	void Jump(float JumpForce);
+	
+	UFUNCTION(BlueprintCallable,Category = "Kart|ItemBox")
+	bool GiveRandomItem();
+	
+	UFUNCTION(BlueprintPure, Category = "Kart|Item")
+	EKartItem GetCurrentItem() const { return CurrentItemData.Type; }
+	
+	UFUNCTION(BlueprintPure, Category = "Kart|Item")
+	const FKartItemData& GetCurrentItemData() const { return CurrentItemData; }
+	
+	UFUNCTION(BlueprintPure, Category = "Kart")
+	float GetCurrentSpeed() const { return CurrentSpeed; }
+	
 protected:
 	
 	virtual void BeginPlay() override;
 	
 	virtual void NotifyControllerChanged() override;
+	
+	UPROPERTY(EditAnywhere, Category = "Kart|HUD")
+	TSubclassOf<UKartHUD> HUDWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UKartHUD> HUDWidget;
+	
+	UPROPERTY(EditAnywhere, Category = "Kart|Item")
+	TObjectPtr<UDataTable> ItemTable;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Kart|Item")
+	FKartItemData CurrentItemData;
+	
+	UPROPERTY(EditAnywhere, Category = "Kart|Input")
+	TObjectPtr<UInputAction> UseItemAction;
+
+	UPROPERTY(EditAnywhere, Category = "Kart|ItemBox")
+	float MushroomBoostDuration = 1.5f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Kart|ItemBox")
+	EKartItem CurrentItem = EKartItem::None;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Kart|Components")
 	TObjectPtr<USphereComponent> CollisionSphere;
@@ -176,7 +218,13 @@ protected:
 	float SuperTurboDuration = 1.2f;
 	
 	UPROPERTY(EditAnywhere, Category = "Kart|Drift")
-	float BoostSpeed = 3500.f;
+	float MiniTurboMultiplier = 1.2f;
+
+	UPROPERTY(EditAnywhere, Category = "Kart|Drift")
+	float SuperTurboMultiplier = 1.5f;
+
+	UPROPERTY(EditAnywhere, Category = "Kart|Item")
+	float MushroomBoostMultiplier = 1.8f;
 	
 	UPROPERTY(EditAnywhere, Category = "Kart|Visual")
 	float WheelRaduis = 20.f;
@@ -250,6 +298,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Kart|State")
 	float CurrentSpeed = 0.f;
 	
+	UPROPERTY(VisibleAnywhere, Category = "Kart|State")
+	float CurrentBoostSpeed = 0.f;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Kart|Race")
 	int32 CurrentLap = 1;
 	
@@ -263,7 +314,13 @@ protected:
 	float FinishTime = 0.f;
 	
 	
+	
+	
+	
 private:
+	
+	void OnUseItemPressed(const FInputActionValue& Value);
+	void UseItem();
 	
 	void OnThrottle(const FInputActionValue& Value);
 	void OnThrottleReleased(const FInputActionValue& Value);
@@ -286,11 +343,11 @@ private:
 	
 	int32 TraceGroundUnderWheels(FVector& OutGroundPoint, FVector& OutGroundNormal) const;
 	
-	void Jump();
+	
 	
 	void StartDrift();
 	void EndDrift();
-	void StartBoost(float Duration);
+	void StartBoost(float Duration, float Multiplier);
 	float GetCurrentMaxSpeed() const;
 	void ShowDebugInfo() const;
 

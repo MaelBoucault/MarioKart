@@ -6,6 +6,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "KartPawn.h"
 #include "TimerManager.h"
+#include "LapZone.h"
 
 AKartGameMode::AKartGameMode ()
 {
@@ -16,7 +17,7 @@ void AKartGameMode::BeginPlay ()
 {
 	Super :: BeginPlay();
 
-	//CountCheckpoints();
+	CountCheckpoints();
 
 	if (bUseCountdown)
 	{
@@ -77,6 +78,16 @@ void AKartGameMode::CountdownStep()
 	
 	ShowDebugText(FString :: FromInt(CountdownNumber), FColor :: Red, 1.f);
 	OnCountdownTick.Broadcast(CountdownNumber);
+}
+
+void AKartGameMode::CountCheckpoints()
+{
+	CheckpointCount = 0;
+	
+	for (TActorIterator<AKartPawn> It(GetWorld()); It; ++It)
+	{
+		CheckpointCount = FMath::Max(CheckpointCount, It->GetCurrentLap());
+	}
 }
 
 void AKartGameMode::StartRace()

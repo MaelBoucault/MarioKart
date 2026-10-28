@@ -13,14 +13,14 @@
     <Platform Name="Win64-arm64ec" />
   </Configurations>
   <Folder Name="/Engine/">
-    <Project Path="Intermediate/ProjectFiles/UE5.vcxproj" Id="eaae0e41-396e-34bf-84cc-ae7f3e5d014a">
+    <Project Path="Intermediate/ProjectFiles/UE5.vcxproj" Id="74bc944a-594f-3c5e-8dd7-f3129240c488">
       <BuildType Project="BuiltWithUnrealBuildTool" />
       <Platform Project="Win64" />
       <Build Project="false" />
     </Project>
   </Folder>
   <Folder Name="/Games/">
-    <Project Path="Intermediate/ProjectFiles/MarioKart.vcxproj" Id="e78deb85-2088-336f-888b-7824ac54b404">
+    <Project Path="Intermediate/ProjectFiles/MarioKart.vcxproj" Id="68c9b6d8-f62c-36c9-ace0-bb03e44ac201">
       <BuildType Solution="DebugGame Editor|Android" Project="Invalid" />
       <BuildType Solution="DebugGame Editor|Android-arm64" Project="Invalid" />
       <BuildType Solution="DebugGame Editor|Android-x64" Project="Invalid" />

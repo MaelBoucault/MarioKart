@@ -1,5 +1,5 @@
 #include "KartPawn.h"
-
+#include "Engine/DataTable.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -11,6 +11,7 @@
 #include "InputActionValue.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "KartGameMode.h"
+#include "KartHUD.h"
 
 
 // Marge (en cm) sous les roues pour considérer que le kart touche le sol
@@ -59,7 +60,7 @@ AKartPawn::AKartPawn()
     SpringArm->TargetArmLength = 600.f;
     SpringArm->SocketOffset = FVector(0.f, 0.f, 100.f);
 
-    // Pas de retard en position : à grande vitesse il fait trembler le kart d'avant en arrière à l'écran
+    // Pas de retard en position : à grande vitesse, il fait trembler le kart d'avant en arrière à l'écran
     SpringArm->bEnableCameraLag = false;
 
     // Retard en rotation seulement : la caméra suit les virages en douceur
@@ -164,6 +165,14 @@ void AKartPawn::NotifyControllerChanged()
        {
           Subsystem->AddMappingContext(KartMappingContext, 0);
        }
+       if (HUDWidgetClass != nullptr && HUDWidget == nullptr)
+       {
+          HUDWidget = CreateWidget<UKartHUD>(PlayerController, HUDWidgetClass);
+          if (HUDWidget != nullptr)
+          {
+             HUDWidget->AddToViewport();
+          }
+       }
        
     }
 }
@@ -190,6 +199,8 @@ void AKartPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
     EnhancedInput->BindAction(DriftAction, ETriggerEvent::Completed, this, &AKartPawn::OnDriftReleased);
 
     EnhancedInput->BindAction(JumpAction, ETriggerEvent::Started, this, &AKartPawn::OnJumpPressed);
+   
+    EnhancedInput->BindAction(UseItemAction, ETriggerEvent::Started, this, &AKartPawn::OnUseItemPressed);
 }
 
 void AKartPawn::Tick(float DeltaTime)
@@ -261,7 +272,7 @@ void AKartPawn::OnJumpPressed(const FInputActionValue& Value)
 {
     if (bCanMove)
     {
-       Jump();
+       Jump(JumpVelocity);
     }
 }
 
@@ -302,12 +313,19 @@ void AKartPawn::UpdateGround(float DeltaTime)
     }
 }
 
+void AKartPawn::SetSpeedBoost(float Multiplier, float BoostTime)
+{
+   StartBoost(BoostTime, Multiplier);
+}
+
+
+
 void AKartPawn::UpdateSpeed(float DeltaTime)
 {
     // Pendant un boost, on fonce à la vitesse du boost, même sans accélérer
     if (BoostTimeRemaining > 0.f)
     {
-       CurrentSpeed = BoostSpeed;
+       CurrentSpeed = CurrentBoostSpeed;
        return;
     }
 
@@ -607,7 +625,7 @@ void AKartPawn::SetWheelRotation(UStaticMeshComponent* Wheel, const FRotator& Ba
 
 // ==================== Saut ====================
 
-void AKartPawn::Jump()
+void AKartPawn::Jump(float JumpForce)
 {
     // On ne peut sauter que depuis le sol
     if (!bIsGrounded)
@@ -616,7 +634,7 @@ void AKartPawn::Jump()
     }
 
     // On donne une vitesse vers le haut, la gravité fera redescendre le kart
-    VerticalSpeed = JumpVelocity;
+    VerticalSpeed = JumpForce;
     bIsGrounded = false;
 }
 
@@ -646,11 +664,11 @@ void AKartPawn::EndDrift()
     // Plus on a drifté longtemps, plus le boost est long
     if (DriftChargeTime >= SuperTurboChargeTime)
     {
-       StartBoost(SuperTurboDuration);
+       StartBoost(SuperTurboDuration, SuperTurboMultiplier);
     }
     else if (DriftChargeTime >= MiniTurboChargeTime)
     {
-       StartBoost(MiniTurboDuration);
+       StartBoost(MiniTurboDuration, MiniTurboMultiplier);
     }
 
     bIsDrifting = false;
@@ -658,15 +676,16 @@ void AKartPawn::EndDrift()
     DriftChargeTime = 0.f;
 }
 
-void AKartPawn::StartBoost(float Duration)
+void AKartPawn::StartBoost(float Duration, float Multiplier)
 {
-    BoostTimeRemaining = Duration;
-    CurrentSpeed = BoostSpeed;
+   BoostTimeRemaining = Duration;
+   CurrentBoostSpeed = MaxForwardSpeed * Multiplier;
+   CurrentSpeed = CurrentBoostSpeed;
 }
 
 float AKartPawn::GetCurrentMaxSpeed() const
 {
-    return BoostTimeRemaining > 0.f ? BoostSpeed : MaxForwardSpeed;
+    return BoostTimeRemaining > 0.f ? CurrentBoostSpeed : MaxForwardSpeed;
 }
 
 void AKartPawn::ShowDebugInfo() const
@@ -694,4 +713,73 @@ void AKartPawn::ShowDebugInfo() const
     GEngine->AddOnScreenDebugMessage(3, 0.f, FColor::Yellow, FString::Printf(TEXT("Boost: %.2f"), 
        BoostTimeRemaining));
 }
+
+// ==================== ItemBox ====================
+
+void AKartPawn::OnUseItemPressed(const FInputActionValue& Value)
+{
+   //si le Kart peut bougé(pas stun), on lance la fonction Useitem()
+   if (bCanMove)
+   {
+      UseItem();
+   }
+}
+
+bool AKartPawn::GiveRandomItem()
+{
+   //verif si le kart na pas d'item, qu'il n'a pas fini la course et que la data table est pas null
+   if (CurrentItemData.Type != EKartItem::None || bHasFinishedRace || ItemTable == nullptr)
+   {
+      return false;
+   }
+
+   //crait un tableau de pointeur
+   TArray<FKartItemData*> Rows;
+   //remplie le tableau des item de la liste, le "GiveRandomItem" est un contexte pour les messages d’erreur si une ligne n’est pas du bon type, on sera d'où ça vient
+   ItemTable->GetAllRows<FKartItemData>(TEXT("GiveRandomItem"), Rows);
+
+   //Additionne les point de chance de tout les items
+   float TotalWeight = 0.f;
+   for (const FKartItemData* Row : Rows)
+   {
+      TotalWeight += Row->DropWeight;
+   }
+   if (TotalWeight <= 0.f)
+   {
+      return false;
+   }
+   
+   //nombre aléatoire entre 0 et le total de points et on recup l'item associé
+   float Roll = FMath::FRandRange(0.f, TotalWeight);
+   for (const FKartItemData* Row : Rows)
+   {
+      Roll -= Row->DropWeight;
+      if (Roll <= 0.f)
+      {
+         CurrentItemData = *Row;
+         return true;
+      }
+   }
+   return false;
+}
+
+
+
+void AKartPawn::UseItem()
+{
+   //en fonction de l'item on fait tel ou tel action
+   switch (CurrentItemData.Type)
+   {
+   case EKartItem::Mushroom:
+      StartBoost(CurrentItemData.BoostDuration, MushroomBoostMultiplier);
+      break;
+      
+   default:
+      return;
+   }
+
+   //on retire l'item
+   CurrentItemData = FKartItemData();
+}
+
  
