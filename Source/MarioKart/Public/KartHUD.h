@@ -26,6 +26,8 @@ protected:
 	//tick
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 	
+	virtual void NativeConstruct() override;;
+	
 	// BindWidget pour que ça compile pas si il y a pas (nom exacte)
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> SpeedText;
@@ -41,5 +43,12 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UImage> ItemImage;
+	
+	
+	
+public:
+	UFUNCTION()
+	void UpdateKartHUD();
+	
 	
 };

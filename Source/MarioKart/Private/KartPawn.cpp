@@ -11,6 +11,8 @@
 #include "InputActionValue.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "KartGameMode.h"
+#include "ItemBase.h"
+#include "KartController.h"
 #include "KartHUD.h"
 
 
@@ -92,6 +94,7 @@ void AKartPawn::BeginPlay()
       bCanMove = GameMode->IsRaceStarted();
       bShowDebug = GameMode->IsDebugTextEnabled();
    }
+
 	
 }
 
@@ -153,7 +156,7 @@ void AKartPawn::ResetRaceProgress()
    bHasFinishedRace = false;
    FinishTime = 0.f;
 }
-   
+
 void AKartPawn::NotifyControllerChanged()
 {
     Super::NotifyControllerChanged();
@@ -165,17 +168,25 @@ void AKartPawn::NotifyControllerChanged()
        {
           Subsystem->AddMappingContext(KartMappingContext, 0);
        }
-       if (HUDWidgetClass != nullptr && HUDWidget == nullptr)
-       {
-          HUDWidget = CreateWidget<UKartHUD>(PlayerController, HUDWidgetClass);
-          if (HUDWidget != nullptr)
-          {
-             HUDWidget->AddToViewport();
-          }
-       }
        
     }
 }
+
+void AKartPawn::RefreshHUD()
+{
+   if (const AKartController* KC = Cast<AKartController>(GetController()))
+   {
+      if (KC->HUD)
+      {
+         KC->HUD->UpdateKartHUD();
+      }
+      else
+      {
+         UE_LOG(LogTemp,Warning,TEXT("ET NON"))
+      }
+   }
+}
+
 
 void AKartPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -727,36 +738,31 @@ void AKartPawn::OnUseItemPressed(const FInputActionValue& Value)
 
 bool AKartPawn::GiveRandomItem()
 {
-   //verif si le kart na pas d'item, qu'il n'a pas fini la course et que la data table est pas null
-   if (CurrentItemData.Type != EKartItem::None || bHasFinishedRace || ItemTable == nullptr)
-   {
-      return false;
-   }
-
-   //crait un tableau de pointeur
-   TArray<FKartItemData*> Rows;
-   //remplie le tableau des item de la liste, le "GiveRandomItem" est un contexte pour les messages d’erreur si une ligne n’est pas du bon type, on sera d'où ça vient
-   ItemTable->GetAllRows<FKartItemData>(TEXT("GiveRandomItem"), Rows);
-
-   //Additionne les point de chance de tout les items
    float TotalWeight = 0.f;
-   for (const FKartItemData* Row : Rows)
+   for (const UItemBase* Item : AvailableItems)
    {
-      TotalWeight += Row->DropWeight;
+      if (Item)
+      {
+         TotalWeight += Item->DropWeight;
+      }
    }
    if (TotalWeight <= 0.f)
    {
+      UE_LOG(LogTemp, Warning, TEXT("AvailableItems est vide ou tous les DropWeight sont a 0"));
       return false;
    }
-   
-   //nombre aléatoire entre 0 et le total de points et on recup l'item associé
    float Roll = FMath::FRandRange(0.f, TotalWeight);
-   for (const FKartItemData* Row : Rows)
+   for (UItemBase* Item : AvailableItems)
    {
-      Roll -= Row->DropWeight;
+      if (!Item)
+      {
+         continue;
+      }
+      Roll -= Item->DropWeight;
       if (Roll <= 0.f)
       {
-         CurrentItemData = *Row;
+         CurrentItem = Item;
+         RefreshHUD();
          return true;
       }
    }
@@ -768,18 +774,20 @@ bool AKartPawn::GiveRandomItem()
 void AKartPawn::UseItem()
 {
    //en fonction de l'item on fait tel ou tel action
-   switch (CurrentItemData.Type)
-   {
-   case EKartItem::Mushroom:
-      StartBoost(CurrentItemData.BoostDuration, MushroomBoostMultiplier);
-      break;
-      
-   default:
-      return;
-   }
-
-   //on retire l'item
-   CurrentItemData = FKartItemData();
+      if (CurrentItem->Type == EItem::Consumable)
+      {
+         if (CurrentItem->BoostDuration > 0.f && CurrentItem->BoostForce > 0.f)
+         {
+            StartBoost(CurrentItem->BoostDuration, CurrentItem->BoostForce);
+         }
+      }
+      else if(CurrentItem->Type == EItem::Throwable)
+      {
+         
+      }
+   
+   CurrentItem = nullptr;
+   RefreshHUD();
+   
+   return;
 }
-
- 

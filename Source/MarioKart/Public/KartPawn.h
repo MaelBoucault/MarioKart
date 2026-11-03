@@ -7,10 +7,9 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Item.h"
+#include "ItemBase.h"
 #include "KartPawn.generated.h"
 
-
-class UKartHUD;
 
 UCLASS()
 class MARIOKART_API AKartPawn : public APawn
@@ -62,13 +61,11 @@ public:
 	bool GiveRandomItem();
 	
 	UFUNCTION(BlueprintPure, Category = "Kart|Item")
-	EKartItem GetCurrentItem() const { return CurrentItemData.Type; }
-	
-	UFUNCTION(BlueprintPure, Category = "Kart|Item")
-	const FKartItemData& GetCurrentItemData() const { return CurrentItemData; }
+	UItemBase* GetCurrentItem() const { return CurrentItem; }
 	
 	UFUNCTION(BlueprintPure, Category = "Kart")
 	float GetCurrentSpeed() const { return CurrentSpeed; }
+
 	
 protected:
 	
@@ -76,17 +73,8 @@ protected:
 	
 	virtual void NotifyControllerChanged() override;
 	
-	UPROPERTY(EditAnywhere, Category = "Kart|HUD")
-	TSubclassOf<UKartHUD> HUDWidgetClass;
+	void RefreshHUD();
 
-	UPROPERTY()
-	TObjectPtr<UKartHUD> HUDWidget;
-	
-	UPROPERTY(EditAnywhere, Category = "Kart|Item")
-	TObjectPtr<UDataTable> ItemTable;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Kart|Item")
-	FKartItemData CurrentItemData;
 	
 	UPROPERTY(EditAnywhere, Category = "Kart|Input")
 	TObjectPtr<UInputAction> UseItemAction;
@@ -95,7 +83,7 @@ protected:
 	float MushroomBoostDuration = 1.5f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Kart|ItemBox")
-	EKartItem CurrentItem = EKartItem::None;
+	UItemBase *CurrentItem;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Kart|Components")
 	TObjectPtr<USphereComponent> CollisionSphere;
@@ -314,7 +302,9 @@ protected:
 	float FinishTime = 0.f;
 	
 	
-	
+	UPROPERTY(EditAnywhere, Category = "Kart|ItemBox")
+	TArray<TObjectPtr<UItemBase>> AvailableItems;
+ 
 	
 	
 private:

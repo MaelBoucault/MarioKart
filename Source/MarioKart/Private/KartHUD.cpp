@@ -5,6 +5,7 @@
 #include "KartPawn.h"
 #include "KartGameMode.h"
 
+
 void UKartHUD::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
@@ -12,6 +13,7 @@ void UKartHUD::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	//Verification :
 	const AKartPawn* Kart = Cast<AKartPawn>(GetOwningPlayerPawn());
 	const AKartGameMode* GameMode = GetWorld()->GetAuthGameMode<AKartGameMode>();
+	
 	if (Kart == nullptr || GameMode == nullptr)
 	{
 		return;
@@ -20,7 +22,6 @@ void UKartHUD::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	//met la vitesse en Km/h et l'affiche
 	const int32 SpeedKmh = FMath::RoundToInt(FMath::Abs(Kart->GetCurrentSpeed()) * 0.036f);
 	SpeedText->SetText(FText::FromString(FString::Printf(TEXT("%d km/h"), SpeedKmh)));
-
 	
 	
 	LapText->SetText(FText::FromString(FString::Printf(TEXT("Tour %d/%d"), Kart->GetCurrentLap(), GameMode->GetLapCount())));
@@ -35,13 +36,39 @@ void UKartHUD::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	{
 		CountdownText->SetText(FText::AsNumber(Countdown));
 	}
+}
 
+void UKartHUD::NativeConstruct()
+{
+	Super::NativeConstruct();
 	
-	//Affiche l'icon du bonus si il y en a un
-	UTexture2D* Icon = Kart->GetCurrentItemData().Icon;
-	ItemImage->SetVisibility(Icon ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+	UpdateKartHUD();
+}
+
+
+void UKartHUD::UpdateKartHUD()
+{
+	//Verification :
+	const AKartPawn* Kart = Cast<AKartPawn>(GetOwningPlayerPawn());
+	const AKartGameMode* GameMode = GetWorld()->GetAuthGameMode<AKartGameMode>();
+	
+	if (Kart == nullptr || GameMode == nullptr)
+	{
+		return;
+	}
+	
+	
+	const UItemBase* Item = Kart->GetCurrentItem();
+	
+	UTexture2D* Icon = Item ? Item->ItemIcon : nullptr; ItemImage->SetVisibility(Icon ?ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+	
 	if (Icon)
 	{
 		ItemImage->SetBrushFromTexture(Icon);
 	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Icon Vide"));
+	}
 }
+

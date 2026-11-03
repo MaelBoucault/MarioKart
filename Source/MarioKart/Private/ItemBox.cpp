@@ -6,6 +6,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "KartPawn.h"
 #include "TimerManager.h"
+#include "KartHUD.h"
 
 
 AItemBox::AItemBox()
