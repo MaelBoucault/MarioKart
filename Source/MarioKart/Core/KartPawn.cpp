@@ -11,9 +11,9 @@
 #include "InputActionValue.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "KartGameMode.h"
-#include "ItemBase.h"
+#include "Data/ItemBase.h"
 #include "KartController.h"
-#include "KartHUD.h"
+#include "UI/KartHUD.h"
 
 
 // Marge (en cm) sous les roues pour considérer que le kart touche le sol
@@ -226,6 +226,9 @@ void AKartPawn::Tick(float DeltaTime)
        SteerInput = 0.f;
     }
 
+   // Tête-à-queue : il doit passer avant les autres étapes, car il efface les commandes du joueur
+   UpdateSpinOut(DeltaTime);
+   
     // Chaque étape est une petite fonction, appelée dans l'ordre
     UpdateGround(DeltaTime);
     UpdateBoost(DeltaTime);
@@ -513,12 +516,13 @@ void AKartPawn::UpdateVisuals(float DeltaTime)
     const float CurrentSlideYaw = BodyMesh->GetRelativeRotation().Yaw - BodyBaseRotation.Yaw;
     const float NewSlideYaw = FMath::FInterpTo(CurrentSlideYaw, TargetSlideYaw, DeltaTime, DriftSlideInterpSpeed);
 
-    FRotator BodyRotation = BodyBaseRotation;
-    BodyRotation.Yaw += NewSlideYaw;
-    BodyMesh->SetRelativeRotation(BodyRotation);
+   FRotator BodyRotation = BodyBaseRotation;
+   BodyRotation.Yaw += BodySlideYaw + SpinOutYaw;
+   BodyMesh->SetRelativeRotation(BodyRotation);
 
-    // La caméra suit le châssis avec du retard pour rester derrière l'arrière du kart sans tourner d'un coup
-    CameraSlideYaw = FMath::FInterpTo(CameraSlideYaw, NewSlideYaw * CameraDriftFollow, DeltaTime, CameraDriftInterpSpeed);
+   // La caméra suit le châssis avec du retard pour rester derrière l'arrière du kart sans tourner d'un coup
+   // (elle suit seulement le drift, pas le tête-à-queue : sinon l'écran tournerait dans tous les sens)
+   CameraSlideYaw = FMath::FInterpTo(CameraSlideYaw, BodySlideYaw * CameraDriftFollow, DeltaTime, CameraDriftInterpSpeed);
 
     // Dans les petites pentes la caméra reste droite, elle ne s'incline qu'au-delà de CameraSlopeDeadZone
     // (on retire la zone morte pour que la caméra commence à s'incliner depuis 0, sans à-coup)
@@ -639,7 +643,7 @@ void AKartPawn::SetWheelRotation(UStaticMeshComponent* Wheel, const FRotator& Ba
 void AKartPawn::Jump(float JumpForce)
 {
     // On ne peut sauter que depuis le sol
-    if (!bIsGrounded)
+    if (!bIsGrounded || IsSpinningOut())
     {
        return;
     }
@@ -659,6 +663,11 @@ void AKartPawn::StartDrift()
        return;
     }
 
+   if (!bCanMove || IsSpinningOut())
+   {
+      return;
+   }
+   
     bIsDrifting = true;
     DriftDirection = SteerInput > 0.f ? 1 : -1;
     DriftChargeTime = 0.f;
@@ -774,20 +783,61 @@ bool AKartPawn::GiveRandomItem()
 void AKartPawn::UseItem()
 {
    //en fonction de l'item on fait tel ou tel action
-      if (CurrentItem->Type == EItem::Consumable)
+   if (!bCanMove && IsSpinningOut()) return;
+   
+   if (CurrentItem->Type == EItem::Consumable)
+   {
+      if (CurrentItem->BoostDuration > 0.f && CurrentItem->BoostForce > 0.f)
       {
-         if (CurrentItem->BoostDuration > 0.f && CurrentItem->BoostForce > 0.f)
-         {
-            StartBoost(CurrentItem->BoostDuration, CurrentItem->BoostForce);
-         }
+         StartBoost(CurrentItem->BoostDuration, CurrentItem->BoostForce);
       }
-      else if(CurrentItem->Type == EItem::Throwable)
-      {
-         
-      }
+   }
+   else if(CurrentItem->Type == EItem::Throwable)
+   {
+      
+   }
    
    CurrentItem = nullptr;
    RefreshHUD();
    
    return;
+}
+
+void AKartPawn::SpinOut(float Duration)
+{
+   // Déjà en train de tourner : on ne recommence pas (sinon deux pièges collés bloqueraient le kart très longtemps)
+   if (Duration <= 0.f || IsSpinningOut())
+   {
+      return;
+   }
+   SpinOutTotalTime = Duration;
+   SpinOutTimeRemaining = Duration;
+   // Le choc fait perdre une bonne partie de la vitesse, et annule le turbo et le drift en cours (sans donner de boost)
+   CurrentSpeed *= SpinOutSpeedFactor;
+   BoostTimeRemaining = 0.f;
+   bIsDrifting = false;
+   DriftDirection = 0;
+   DriftChargeTime = 0.f;
+}
+
+void AKartPawn::UpdateSpinOut(float DeltaTime)
+{
+   if (!IsSpinningOut())
+   {
+      SpinOutYaw = 0.f;
+      return;
+   }
+   SpinOutTimeRemaining = FMath::Max(0.f, SpinOutTimeRemaining - DeltaTime);
+   // Comme pendant le compte à rebours : les touches sont ignorées
+   ThrottleInput = 0.f;
+   SteerInput = 0.f;
+   // Pas de freinage forcé : les touches sont à zéro, donc UpdateSpeed ralentit le kart doucement (CoastDeceleration),
+   // comme quand on lâche l'accélérateur. Le kart glisse sur sa lancée au lieu de s'arrêter net
+   // Progress = où on en est, de 0 (début du choc) à 1 (fin)
+   const float Progress = 1.f - SpinOutTimeRemaining / SpinOutTotalTime;
+   // 1 - (1 - Progress)² : une courbe qui monte vite puis ralentit
+   // Le châssis tourne vite juste après le choc, puis de moins en moins, comme un kart qui perd son élan
+   // À la fin (Progress = 1), on a fait pile SpinOutTurns tours complets : le châssis retombe droit, sans à-coup
+   const float EaseOut = 1.f - FMath::Square(1.f - Progress);
+   SpinOutYaw = 360.f * SpinOutTurns * EaseOut;
 }

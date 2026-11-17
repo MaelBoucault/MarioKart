@@ -6,7 +6,7 @@
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
-#include "KartPawn.h"
+#include "Core/KartPawn.h"
 
 
 ABoost::ABoost()

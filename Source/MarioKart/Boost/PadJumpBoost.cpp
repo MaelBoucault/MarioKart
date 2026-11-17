@@ -1,6 +1,6 @@
 #include "PadJumpBoost.h"
 #include "Components/BoxComponent.h"
-#include "KartPawn.h"
+#include "Core/KartPawn.h"
 
 APadJumpBoost::APadJumpBoost()
 {

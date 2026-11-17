@@ -6,7 +6,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "KartPawn.h"
 #include "TimerManager.h"
-#include "LapZone.h"
+#include "World/LapZone.h"
 
 AKartGameMode::AKartGameMode ()
 {

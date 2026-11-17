@@ -3,11 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/KartPawn.h"
 #include "Engine/DataAsset.h"
-#include "Item.h"
+#include "Data/Item.h"
 #include "ItemBase.generated.h"
 
-
+class AKartPawn;
+class UTexture2D;
 
 UCLASS()
 class MARIOKART_API UItemBase : public UPrimaryDataAsset
@@ -41,7 +43,8 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	float BoostDuration = 1.5f;
 	
-	
+
+	virtual bool Activate(AKartPawn* Kart) const;
 	
 	
 };

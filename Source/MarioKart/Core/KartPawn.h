@@ -6,8 +6,8 @@
 #include "Components/SphereComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Item.h"
-#include "ItemBase.h"
+#include "Data/Item.h"
+#include "Data//ItemBase.h"
 #include "KartPawn.generated.h"
 
 
@@ -29,7 +29,9 @@ public:
 	void SetCanMove(bool bInCanMove);
 	
 	UFUNCTION(BlueprintCallable,Category = "Kart")
-	bool CanMove() const { return bCanMove; };
+	bool CanMove() const { return bCanMove; }
+
+	bool Activate(AKartPawn* Kart) const;;
 	
 	void EnterLapZone(int32 ZoneIndex);
 	
@@ -62,6 +64,16 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category = "Kart|Item")
 	UItemBase* GetCurrentItem() const { return CurrentItem; }
+	
+	// Le kart est touché (piège, projectile) : il part en tête-à-queue pendant Duration secondes
+	UFUNCTION(BlueprintCallable, Category = "Kart|Items")
+	void SpinOut(float Duration);
+	
+	UFUNCTION(BlueprintPure, Category = "Kart|Items")
+	bool IsSpinningOut() const { return SpinOutTimeRemaining > 0.f; }
+	
+	
+	
 	
 	UFUNCTION(BlueprintPure, Category = "Kart")
 	float GetCurrentSpeed() const { return CurrentSpeed; }
@@ -304,8 +316,24 @@ protected:
 	
 	UPROPERTY(EditAnywhere, Category = "Kart|ItemBox")
 	TArray<TObjectPtr<UItemBase>> AvailableItems;
- 
 	
+	// Nombre de tours complets que fait le châssis pendant un tête-à-queue
+	UPROPERTY(EditAnywhere, Category = "Kart|SpinOut", meta = (ClampMin = "0"))
+	int32 SpinOutTurns = 2;
+ 
+	// Part de la vitesse gardée au moment du choc (0 = arrêt net, 1 = aucune perte)
+	UPROPERTY(EditAnywhere, Category = "Kart|SpinOut", meta = (ClampMin = "0", ClampMax = "1"))
+	float SpinOutSpeedFactor = 0.6f;
+	
+	UPROPERTY(VisibleAnywhere, Category = "Kart|State")
+	float SpinOutTimeRemaining = 0.f;
+	
+	// Durée totale du tête-à-queue en cours (sert à savoir où on en est : début, milieu, fin)
+	UPROPERTY(VisibleAnywhere, Category = "Kart|State")
+	float SpinOutTotalTime = 0.f;
+	// Angle (en degrés) dont le châssis a tourné sur lui-même depuis le début du tête-à-queue
+	UPROPERTY(VisibleAnywhere, Category = "Kart|State")
+	float SpinOutYaw = 0.f;
 	
 private:
 	
@@ -319,6 +347,10 @@ private:
 	void OnDriftPressed(const FInputActionValue& Value);
 	void OnDriftReleased(const FInputActionValue& Value);
 	void OnJumpPressed(const FInputActionValue& Value);
+	
+	// Étape du Tick : fait tourner le châssis, freine le kart et ignore les touches tant que le tête-à-queue dure
+	void UpdateSpinOut(float DeltaTime);
+	
 	
 	void UpdateGround(float DeltaTime);
 	void UpdateSpeed(float DeltaTime);
@@ -350,7 +382,12 @@ private:
 	FRotator WheelRearLeftBaseRotation;
 	FRotator WheelRearRightBaseRotation;
 	
-	float CameraSlideYaw= 0.f;
+	
+	// Angle du châssis pendant le drift (sans le tête-à-queue)
+	// Avant on le relisait sur le mesh, mais pendant un tête-à-queue le mesh tourne en plus : on le garde donc à part
+	float BodySlideYaw = 0.f;
+	// Angle de la caméra pendant le drift (il suit celui du châssis avec du retard)
+	float CameraSlideYaw = 0.f;
 
 	float CameraSlopePitch = 0.f;
 	

@@ -3,7 +3,7 @@
 #include "LapZone.h"
 #include "Components/BoxComponent.h"
 #include "Components/ArrowComponent.h"
-#include "KartPawn.h"
+#include "Core/KartPawn.h"
 
 
 // Sets default values

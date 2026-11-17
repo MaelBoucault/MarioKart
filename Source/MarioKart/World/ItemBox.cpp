@@ -4,9 +4,9 @@
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "KartPawn.h"
+#include "Core/KartPawn.h"
 #include "TimerManager.h"
-#include "KartHUD.h"
+#include "UI/KartHUD.h"
 
 
 AItemBox::AItemBox()

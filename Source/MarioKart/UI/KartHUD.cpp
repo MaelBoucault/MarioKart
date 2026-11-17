@@ -2,8 +2,8 @@
 #include "Components/TextBlock.h"
 #include "Components/Image.h"
 #include "Engine/Texture2D.h"
-#include "KartPawn.h"
-#include "KartGameMode.h"
+#include "Core/KartPawn.h"
+#include "Core/KartGameMode.h"
 
 
 void UKartHUD::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
